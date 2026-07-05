@@ -15,6 +15,12 @@ from pathlib import Path
 from mewcode.config import ConfigError, load_config
 from mewcode.hooks import HookConfigError, HookEngine, load_hooks
 from mewcode.permissions import PermissionMode
+from mewcode.setup_wizard import (
+    any_config_exists,
+    missing_api_key_envs,
+    print_missing_api_key_help,
+    run_setup_wizard,
+)
 
 
 def main() -> None:
@@ -40,12 +46,32 @@ def main() -> None:
         default=None,
         help="Run non-interactively: execute the prompt and print the result to stdout",
     )
+    parser.add_argument(
+        "--setup",
+        action="store_true",
+        help="Configure the model provider before starting",
+    )
     args = parser.parse_args()
+
+    if args.setup:
+        if not run_setup_wizard(force=True):
+            sys.exit(1)
+        if args.p is None:
+            return
+
+    if not any_config_exists():
+        if not run_setup_wizard():
+            sys.exit(1)
 
     try:
         config = load_config()
     except ConfigError as e:
         print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    missing_keys = missing_api_key_envs(config.providers)
+    if missing_keys:
+        print_missing_api_key_help(missing_keys)
         sys.exit(1)
 
     mode_str = args.mode if args.mode else config.permission_mode
@@ -216,4 +242,3 @@ async def _run_prompt(config, permission_mode, hook_engine, prompt: str) -> None
 
 if __name__ == "__main__":
     main()
-

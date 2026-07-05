@@ -20,7 +20,28 @@ If you use `uv`:
 uv sync --dev
 ```
 
-## Configure
+## First Run
+
+Start MewCode:
+
+```bash
+mewcode
+```
+
+If no config exists, MewCode will open a setup wizard before entering the chat UI. The wizard asks for:
+
+- provider: DeepSeek, OpenAI, Anthropic, or custom OpenAI-compatible
+- model name
+- API key environment variable, or a direct API key if you choose to save it locally
+- optional context window and max output tokens
+
+You can run the setup wizard again at any time:
+
+```bash
+mewcode --setup
+```
+
+## Manual Configure
 
 Create a local config file:
 
