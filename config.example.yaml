@@ -1,0 +1,38 @@
+# Copy this file to .mewcode/config.yaml and edit it for your own provider.
+# Never put real API keys in this example file.
+
+providers:
+  # DeepSeek or other OpenAI-compatible providers.
+  - name: deepseek
+    protocol: openai-compat
+    base_url: https://api.deepseek.com
+    model: deepseek-chat
+    api_key: ${DEEPSEEK_API_KEY}
+    context_window: 0
+    max_output_tokens: 8192
+
+  # OpenAI Responses API example.
+  # - name: openai
+  #   protocol: openai
+  #   base_url: https://api.openai.com/v1
+  #   model: gpt-4.1
+  #   api_key: ${OPENAI_API_KEY}
+  #   context_window: 0
+  #   max_output_tokens: 8192
+
+  # Anthropic Messages API example.
+  # - name: anthropic
+  #   protocol: anthropic
+  #   base_url: https://api.anthropic.com
+  #   model: claude-sonnet-4-20250514
+  #   api_key: ${ANTHROPIC_API_KEY}
+  #   context_window: 0
+  #   max_output_tokens: 8192
+
+permission_mode: default
+
+# Optional features.
+enable_fork: false
+enable_verification_agent: false
+teammate_mode: ""
+enable_coordinator_mode: false
