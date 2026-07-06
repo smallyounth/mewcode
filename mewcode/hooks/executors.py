@@ -5,7 +5,12 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
+import os
+import signal
+import subprocess
+import sys
 from urllib.request import Request, urlopen
 from urllib.error import URLError
 
@@ -14,25 +19,63 @@ from mewcode.hooks.models import Action, ActionResult, HookContext
 log = logging.getLogger(__name__)
 
 
+async def _terminate_process_tree(proc: asyncio.subprocess.Process) -> None:
+    if proc.returncode is not None:
+        return
+
+    if sys.platform == "win32":
+        with contextlib.suppress(Exception):
+            killer = await asyncio.create_subprocess_exec(
+                "taskkill",
+                "/PID",
+                str(proc.pid),
+                "/T",
+                "/F",
+                stdout=asyncio.subprocess.DEVNULL,
+                stderr=asyncio.subprocess.DEVNULL,
+            )
+            await asyncio.wait_for(killer.wait(), timeout=5)
+        if proc.returncode is None:
+            with contextlib.suppress(ProcessLookupError):
+                proc.kill()
+    else:
+        with contextlib.suppress(ProcessLookupError):
+            os.killpg(proc.pid, signal.SIGKILL)
+        if proc.returncode is None:
+            with contextlib.suppress(ProcessLookupError):
+                proc.kill()
+
+    with contextlib.suppress(Exception):
+        await asyncio.wait_for(proc.wait(), timeout=5)
+
+
 async def execute_command(action: Action, ctx: HookContext) -> ActionResult:
     command = ctx.expand(action.command)
+    process_kwargs = (
+        {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP}
+        if sys.platform == "win32"
+        else {"start_new_session": True}
+    )
     try:
         proc = await asyncio.create_subprocess_shell(
             command,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.STDOUT,
+            **process_kwargs,
         )
         try:
             stdout, _ = await asyncio.wait_for(
                 proc.communicate(), timeout=action.timeout
             )
         except asyncio.TimeoutError:
-            proc.kill()
-            await proc.wait()
+            await _terminate_process_tree(proc)
             return ActionResult(
                 output=f"Command timed out after {action.timeout}s: {command}",
                 success=False,
             )
+        except asyncio.CancelledError:
+            await _terminate_process_tree(proc)
+            raise
         output = stdout.decode(errors="replace").strip() if stdout else ""
         return ActionResult(output=output, success=proc.returncode == 0)
     except Exception as e:

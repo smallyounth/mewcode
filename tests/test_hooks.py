@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import asyncio
+import sys
 from typing import Any, AsyncIterator
 from unittest.mock import patch
 
@@ -253,7 +254,11 @@ class TestCommandExecutor:
     async def test_timeout(self):
         from mewcode.hooks.executors import execute_command
 
-        action = Action(type="command", command="sleep 10", timeout=1)
+        action = Action(
+            type="command",
+            command=f'"{sys.executable}" -c "import time; time.sleep(10)"',
+            timeout=1,
+        )
         ctx = HookContext()
         result = await execute_command(action, ctx)
         assert result.success is False
@@ -493,12 +498,16 @@ class TestHookEngine:
         h = self._make_hook(
             id="slow",
             event="post_tool_use",
-            action=Action(type="command", command="sleep 5"),
+            action=Action(
+                type="command",
+                command=f'"{sys.executable}" -c "import time; time.sleep(5)"',
+            ),
             async_exec=True,
         )
         engine = HookEngine([h])
         ctx = HookContext(event_name="post_tool_use")
         await engine.run_hooks("post_tool_use", ctx)
+        await engine.cancel_background_tasks()
 
 # ---------------------------------------------------------------------------
 # Agent 循环集成

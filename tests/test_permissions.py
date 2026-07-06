@@ -266,8 +266,8 @@ class TestPermissionMode:
 
     def test_plan_mode(self) -> None:
         assert mode_decide(PermissionMode.PLAN, "read") == "allow"
-        assert mode_decide(PermissionMode.PLAN, "write") == "deny"
-        assert mode_decide(PermissionMode.PLAN, "command") == "deny"
+        assert mode_decide(PermissionMode.PLAN, "write") == "ask"
+        assert mode_decide(PermissionMode.PLAN, "command") == "ask"
 
     def test_bypass_mode(self) -> None:
         assert mode_decide(PermissionMode.BYPASS, "read") == "allow"
@@ -327,12 +327,12 @@ class TestPermissionChecker:
         d = self.checker.check(tool, {"command": "npm test"})
         assert d.effect == "ask"
 
-    def test_plan_mode_denies_write(self) -> None:
+    def test_plan_mode_asks_for_write(self) -> None:
         from mewcode.tools.write_file import WriteFile
         self.checker.mode = PermissionMode.PLAN
         tool = WriteFile()
         d = self.checker.check(tool, {"file_path": str(self.tmpdir / "x.txt"), "content": "hi"})
-        assert d.effect == "deny"
+        assert d.effect == "ask"
 
     def test_bypass_mode_allows_all(self) -> None:
         from mewcode.tools.bash import Bash
@@ -569,14 +569,17 @@ async def test_e2e_default_mode_write_triggers_ask():
 
 @pytest.mark.asyncio
 async def test_e2e_bypass_mode_allows_all():
-    """Bypass 模式无需询问，放行一切操作。"""
+    """Bypass 模式无需询问，但仍遵守写已有文件前先读取的文件安全约束。"""
     tmpdir = Path(tempfile.mkdtemp())
     test_file = tmpdir / "existing.txt"
     test_file.write_text("original")
 
     client = MockLLMClient([
         [
-            ToolCallComplete("t1", "WriteFile", {
+            ToolCallComplete("t1", "ReadFile", {
+                "file_path": str(test_file),
+            }),
+            ToolCallComplete("t2", "WriteFile", {
                 "file_path": str(test_file),
                 "content": "modified",
             }),
@@ -604,8 +607,8 @@ async def test_e2e_bypass_mode_allows_all():
 
     c = _collect(events)
     assert len(c["permission"]) == 0
-    assert len(c["tool_result"]) == 1
-    assert not c["tool_result"][0].is_error
+    assert len(c["tool_result"]) == 2
+    assert all(not r.is_error for r in c["tool_result"])
     assert test_file.read_text() == "modified"
 
 @pytest.mark.asyncio
