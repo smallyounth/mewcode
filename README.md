@@ -41,6 +41,11 @@ You can run the setup wizard again at any time:
 mewcode --setup
 ```
 
+## Feishu Bot
+
+MewCode can run behind a personal Feishu bot webhook for server-side command
+execution and answers in Feishu. See [docs/feishu-bot.md](docs/feishu-bot.md).
+
 ## Manual Configure
 
 Create a local config file:
